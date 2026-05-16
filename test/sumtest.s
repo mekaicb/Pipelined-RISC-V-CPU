@@ -25,8 +25,15 @@ LOOP:
 	ret
 	
 .data
-SUM:	.space 4
-N:    	.word  5
+SUM:		.space 4
+N:  		.word  5
 LIST: 	.word  12, 0xFFFFFFFE, 7, -1, 2
 
 # .end not required for RISC-V
+
+# Note
+# li is a pseudoinstruction. It expects a 32 bit immediate. So to keep the rule of 32 bit instructions, it splits the 32 bit imm into the upper 20 and lower 12 bits. Then it does lui on the upper 20, and adds the lower 12 bits. For ex, 0x00043800 -> 0x00043 & 0x800.
+# Numbers get turned into 0x00044 and 0xFFFFF800 by assembler magic
+# lui sp, 0x44
+# addi sp, sp, 0xFFFFF800
+# Explains why modelsim waveform may show unexpected imm_o/opcode
