@@ -4,6 +4,9 @@ module adder(
 	output logic [31:0] out
 	);
 	
-	assign out = in1 + in2;
+	
+	always_comb begin
+		out = in1 + in2;
+	end
 	
 endmodule
