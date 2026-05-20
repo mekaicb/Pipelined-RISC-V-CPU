@@ -31,6 +31,7 @@ module ALU(
 			4'b0111 : out = $signed(in1) >>> in2[4:0]; // SRA/SRAI (>>> duplicates sign bit)
 			4'b1000 : out = in1 | in2; // OR/ORI
 			4'b1001 : out = in1 & in2; // AND/ANDI
+			
 			default : out = 32'b0;
 		endcase
 	end
