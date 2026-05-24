@@ -1,75 +1,53 @@
 	module CPU(
 	input logic clk, rst_n
 	);
+	logic [31:0] pc_addr_in, pc_addr_out, IFID_addr_out, IDEX_addr_out;
+	logic [31:0] instr_data_out, IFID_data_out;
+	logic [6:0] opcode;
+	
+	logic [31:0] ALU_result, EXMEM_ALU_result, MEMWB_ALU_result;
+	logic [31:0] rd_data;
+	
 
 	// Control Signals
-	logic regwrite, branch, memwrite, memread, memtoreg, jump, btarget;
-	logic [1:0] aluop, alusrc, pc_to_alu;
-	
-	// PC
-	logic [31:0] pc_addr_in, pc_addr_out;
-	
-	// Instruction Memory
-	logic [31:0] instr_data_out;
-	
-	// IF/ID Buffer
-	logic [31:0] IFID_addr_out, IFID_data_out;
-	
-	// Register File
-	logic [6:0] opcode;
-	logic [4:0] rs1_addr, rs2_addr, rd_addr;
-	logic [31:0] rs1_data, rs2_data;
-	logic [31:0] rd_data;
-	logic [2:0] funct3;
-	logic funct7;
-	
-	// Imm Gen
-	logic [31:0] imm_gen_o;
-	
-	// ID/EX Buffer
-	logic IDEX_regwrite, IDEX_branch, IDEX_memwrite, IDEX_memread, IDEX_memtoreg, IDEX_jump, IDEX_btarget;
-	logic [1:0] IDEX_aluop, IDEX_alusrc, IDEX_pc_to_alu;
-	logic IDEX_funct7;
-	logic [2:0] IDEX_funct3;
-	logic [31:0] IDEX_addr_out;
-	logic [31:0] IDEX_rs1_data, IDEX_rs2_data;
-	logic [4:0] IDEX_rd_addr, IDEX_rs1_addr, IDEX_rs2_addr;
-	logic [31:0] IDEX_imm;
-	
-	// ALU / EX Stage
-	logic [31:0] branch_target;
-	logic [31:0] in1, in2;
-	logic zero, overflow;
-	logic [31:0] ALU_result;
+	logic regwrite, IDEX_regwrite, EXMEM_regwrite, MEMWB_regwrite;
+	logic branch, IDEX_branch, EXMEM_branch;
+	logic memwrite,IDEX_memwrite, EXMEM_memwrite;
+	logic memtoreg,IDEX_memtoreg, EXMEM_memtoreg, MEMWB_memtoreg;
+	logic memread, IDEX_memread, EXMEM_memread;
+	logic jump, IDEX_jump, EXMEM_jump;
+	logic btarget, IDEX_btarget;
+	logic [1:0] aluop, IDEX_aluop;
 	logic [3:0] ALU_cont;
+	logic [1:0] alusrc, IDEX_alusrc;
+	logic [1:0] pc_to_alu, IDEX_pc_to_alu;
+	logic pcsrc;
+	logic pcwrite, IFID_write, IDEX_hazard_flush;
 	
-	// Forwarding Unit
+	logic [4:0] rs1_addr, IFID_rs1_addr, IDEX_rs1_addr;
+	logic [4:0] rs2_addr, IFID_rs2_addr, IDEX_rs2_addr;
+	logic [4:0] rd_addr, IFID_rd_addr, IDEX_rd_addr, EXMEM_rd_addr, MEMWB_rd_addr;
+	
+	logic [31:0] rs1_data, IDEX_rs1_data;
+	logic [31:0] rs2_data, IDEX_rs2_data, EXMEM_rs2_data;
+	
+	logic [2:0] funct3, IDEX_funct3, EXMEM_funct3;
+	logic funct7, IDEX_funct7, EXMEM_funct7;
+	
+	logic [31:0] imm_gen_o, IDEX_imm;
+
+	logic [31:0] branch_target, EXMEM_branch_target;
+	logic [31:0] in1, in2;
+	
+	logic zero, EXMEM_zero; 
+	logic overflow;
+
 	logic [1:0] forward_A, forward_B;
 	logic [31:0] forward_A_out, forward_B_out;
 	
-	// Hazard Detection Unit
-	logic pcwrite, IFID_write, IDEX_hazard_flush;
-	
-	// EX/MEM Buffer
-	logic EXMEM_regwrite, EXMEM_branch, EXMEM_zero, EXMEM_memwrite, EXMEM_memread, EXMEM_memtoreg, EXMEM_jump;
-	logic [31:0] EXMEM_branch_target;
-	logic [31:0] EXMEM_rs2_data;
-	logic [31:0] EXMEM_ALU_result;
-	logic [4:0] EXMEM_rd_addr;
-	logic EXMEM_funct7;
-	logic [2:0] EXMEM_funct3;
-	
-	// Branch Control Unit
-	logic pcsrc;
-	
-	// RAM
-	logic [31:0] read_data; // Wire 
+	logic [31:0] read_data, mem_data; // Wire 
 
-	// MEM/WB Buffer
-	logic [31:0] mem_data;
-	logic [31:0] MEMWB_ALU_result;
-	logic [4:0] MEMWB_rd_addr;
-	logic MEMWB_memtoreg, MEMWB_regwrite;
+	
 	
 	program_counter pc(
 		.clk(clk),
