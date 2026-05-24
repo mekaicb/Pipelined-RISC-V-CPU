@@ -33,7 +33,7 @@
 	logic [2:0] IDEX_funct3;
 	logic [31:0] IDEX_addr_out;
 	logic [31:0] IDEX_rs1_data, IDEX_rs2_data;
-	logic [4:0] IDEX_rd_addr;
+	logic [4:0] IDEX_rd_addr, IDEX_rs1_addr, IDEX_rs2_addr;
 	logic [31:0] IDEX_imm;
 	
 	// ALU / EX Stage
@@ -42,6 +42,13 @@
 	logic zero, overflow;
 	logic [31:0] ALU_result;
 	logic [3:0] ALU_cont;
+	
+	// Forwarding Unit
+	logic [1:0] forward_A, forward_B;
+	logic [31:0] forward_A_out, forward_B_out;
+	
+	// Hazard Detection Unit
+	logic pcwrite, IFID_write, IDEX_hazard_flush;
 	
 	// EX/MEM Buffer
 	logic EXMEM_regwrite, EXMEM_branch, EXMEM_zero, EXMEM_memwrite, EXMEM_memread, EXMEM_memtoreg, EXMEM_jump;
@@ -67,8 +74,10 @@
 	program_counter pc(
 		.clk(clk),
 		.rst_n(rst_n),
+		
 		.addr_in(pc_addr_in), 
-		.addr_out(pc_addr_out)
+		.addr_out(pc_addr_out),
+		.pcwrite(pcwrite)
 	);
 	
 	instruction_memory ROM(
@@ -85,7 +94,10 @@
 		.pc_addr_i(pc_addr_out), 
 		.inst_data_i(instr_data_out),
 		.pc_addr_o(IFID_addr_out),
-		.inst_data_o(IFID_data_out)
+		.inst_data_o(IFID_data_out),
+		
+		.IFID_flush(pcsrc),
+		.IFID_write(IFID_write)
 	);
 	
 	
@@ -142,6 +154,8 @@
 		.rs2_data_i(rs2_data),
 		.rs1_data_i(rs1_data), 
 		.rd_addr_i(rd_addr), 
+		.rs2_addr_i(rs2_addr),
+		.rs1_addr_i(rs1_addr),
 		
 		.imm_i(imm_gen_o),
 		
@@ -155,6 +169,8 @@
 		.ALUop_o(IDEX_aluop),
 		.jump_o(IDEX_jump),
 		.btarget_o(IDEX_btarget),
+		.IDEX_flush(pcsrc),
+		.IDEX_hazard_flush(IDEX_hazard_flush),
 		
 		.funct3_o(IDEX_funct3),
 		.funct7_o(IDEX_funct7), 
@@ -163,6 +179,8 @@
 		.rs2_data_o(IDEX_rs2_data), 
 		.rs1_data_o(IDEX_rs1_data),
 		.rd_addr_o(IDEX_rd_addr), 
+		.IDEX_rs2_addr(IDEX_rs2_addr),
+		.IDEX_rs1_addr(IDEX_rs1_addr),
 		
 		.imm_o(IDEX_imm)
 	);
@@ -183,6 +201,27 @@
 		.overflow(overflow)
 	);
 	
+	forwarding_unit forwarding_unit(
+		.IDEX_rs1_addr(IDEX_rs1_addr),
+		.IDEX_rs2_addr(IDEX_rs2_addr),
+		.EXMEM_rd_addr(EXMEM_rd_addr),
+		.MEMWB_rd_addr(MEMWB_rd_addr),
+		.EXMEM_regwrite(EXMEM_regwrite),
+		.MEMWB_regwrite(MEMWB_regwrite),
+		.forward_A(forward_A),
+		.forward_B(forward_B)
+	);
+	
+	hazard_detection hazard_unit(
+		.IFID_rs1_addr(rs1_addr),
+		.IFID_rs2_addr(rs2_addr),
+		.IDEX_rd_addr(IDEX_rd_addr),
+		.IDEX_memread(IDEX_memread),
+		.pcwrite(pcwrite),
+		.IFID_write(IFID_write),
+		.IDEX_hazard_flush(IDEX_hazard_flush)
+	);
+	
 	EXMEM_buffer EXMEM_buffer(
 		.clk(clk), 
 		.rst_n(rst_n), 
@@ -197,7 +236,7 @@
 		.zero(zero),
 		.ALU_result_i(ALU_result), 
 		
-		.rs2_data_i(IDEX_rs2_data), 
+		.rs2_data_i(forward_B_out), // forward_B_out to handle forwarded value on a hazard in case of store
 		.rd_addr_i(IDEX_rd_addr), 
 		
 		.funct3(IDEX_funct3), 
@@ -266,17 +305,31 @@
 		funct7 = IFID_data_out[30];
 		funct3 = IFID_data_out[14:12];
 		
-		branch_target = (IDEX_btarget ? IDEX_rs1_data : IDEX_addr_out) + IDEX_imm;
+		branch_target = (IDEX_btarget ? forward_A_out : IDEX_addr_out) + IDEX_imm;
+		
+		case(forward_A)
+			2'b00 : forward_A_out = IDEX_rs1_data;
+			2'b01 : forward_A_out = rd_data;
+			2'b10 : forward_A_out = EXMEM_ALU_result;
+			default : forward_A_out = IDEX_rs1_data;
+		endcase
+		
+		case(forward_B)
+			2'b00 : forward_B_out = IDEX_rs2_data;
+			2'b01 : forward_B_out = rd_data;
+			2'b10 : forward_B_out = EXMEM_ALU_result;
+			default : forward_B_out = IDEX_rs2_data;
+		endcase
 		
 		case(IDEX_pc_to_alu) // in1 mux
-			2'b00 : in1 = IDEX_rs1_data; // rs1
+			2'b00 : in1 = forward_A_out; // rs1
 			2'b01 : in1 = IDEX_addr_out; // PC addr
 			2'b10 : in1 = 32'b0;         // 0
 			default: in1 = 32'b0;
 		endcase
 		 
 		case(IDEX_alusrc) // in2 mux
-			2'b00 : in2 = IDEX_rs2_data; // rs2
+			2'b00 : in2 = forward_B_out; // rs2
 			2'b01 : in2 = IDEX_imm;      // imm
 			2'b10 : in2 = 32'h00000004;  // 4
 			default: in2 = 32'b0;

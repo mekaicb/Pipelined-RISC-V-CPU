@@ -1,5 +1,5 @@
 module IDEX_buffer(
-	input logic clk, rst_n, IDEX_flush, hazard_flush,
+	input logic clk, rst_n, IDEX_flush, IDEX_hazard_flush,
 	input logic branch_i, memread_i, memwrite_i, regwrite_i, memtoreg_i, jump_i, btarget_i,
 	input logic [1:0] ALUop_i, ALUsrc_i, pc_to_alu_i,
 	input logic funct7,
@@ -19,7 +19,7 @@ module IDEX_buffer(
 	);
 	
 	always_ff @(posedge clk) begin
-		if(!rst_n || IDEX_flush || hazard_flush) begin // IDEX_flush to flush for branch delay, hazard_flush to flush on load/store hazard
+		if(!rst_n || IDEX_flush || IDEX_hazard_flush) begin // IDEX_flush to flush for branch delay, IDEX_hazard_flush to flush on load/store hazard
 			ALUsrc_o <= 2'b00;
 			ALUop_o <= 2'b00;
 			branch_o <= 1'b0;
