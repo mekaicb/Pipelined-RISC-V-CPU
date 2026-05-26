@@ -8,6 +8,7 @@ module EXMEM_buffer(
 	input logic [4:0] rd_addr_i,
 	input logic [2:0] funct3,
 	input logic funct7,
+	input logic EXMEM_flush,
 	output logic branch_o, memread_o, memwrite_o, regwrite_o, memtoreg_o, jump_o,
 	output logic [31:0] imm_o,
 	output logic zero_o,
@@ -16,10 +17,11 @@ module EXMEM_buffer(
 	output logic [4:0] rd_addr_o,
 	output logic [2:0] EXMEM_funct3,
 	output logic EXMEM_funct7
+	
 	);
 	
 	always_ff @(posedge clk) begin
-		if(!rst_n) begin
+		if(!rst_n || EXMEM_flush) begin
 			branch_o <= 1'b0;
 			memread_o <= 1'b0;
 			memwrite_o <= 1'b0;
@@ -28,7 +30,7 @@ module EXMEM_buffer(
 			imm_o <= 32'b0;
 			ALU_result_o <= 32'b0;
 			rs2_data_o <= 32'b0;
-			rd_addr_o <= 32'b0;
+			rd_addr_o <= 5'b0;
 			EXMEM_funct3 <= 3'b0;
 			EXMEM_funct7 <= 1'b0;
 			zero_o <= 1'b0;
