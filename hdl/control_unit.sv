@@ -26,7 +26,7 @@ module control_unit(
 			
 			// I-type (Arithmetic/Logic)
 			7'b0010011 : begin
-				ALUsrc = 2'b01;  
+				ALUsrc = 2'b01;
 				ALUop = 2'b11; 
 				branch = 1'b0;  
 				memread = 1'b0;
@@ -83,7 +83,7 @@ module control_unit(
 			// B-type
 			7'b1100011 : begin
 				ALUsrc = 2'b00; 
-				ALUop = 2'b11; // Check funct3 only 
+				ALUop = 2'b01; // Branch
 				branch = 1'b1;  
 				memread = 1'b0; 
 				memwrite = 1'b0;
@@ -142,7 +142,7 @@ module control_unit(
 				memread = 1'b0; 
 				memwrite = 1'b0;
 				regwrite = 1'b0; 
-				memtoreg = 2'b0;
+				memtoreg = 1'b0;
 				pc_to_alu = 2'b00;
 				btarget = 1'b0;
 				jump = 1'b0;
