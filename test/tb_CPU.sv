@@ -5,19 +5,15 @@ module tb_CPU();
 	logic [6:0] opcode;
 	logic [2:0] funct3;
 	logic funct7;
-	logic hazard;
-	
-	int clk_count, pass_count, sumtest_pass;
+
+	int pass_count, sumtest_pass;
 	localparam RAM_BASE = 32'h10000;
-	
 	string inst_type;
-	string hazard_detected;
 	
 	CPU dut(.clk(clk), .rst_n(rst_n));
 	
 	always #5ns clk = ~clk; // 100MHz clk
 	
-	//
 	task automatic test_instruction(
 		input logic [31:0] instr1, instr2, instr3, instr4
 	);
@@ -32,8 +28,10 @@ module tb_CPU();
 	endtask
 	
 	task automatic clear_all();
+		rst_n = 0;
+		#20
+		rst_n = 1;
 		for(int i = 0; i<32; i=i+1) begin
-			dut.reg_file.reg_out[i] = 32'b0; // Clear all registers
 			dut.RAM.mem_array[i] = 8'b0; // Clear memory (Assume only first 32 bytes in RAM used for testing)
 		end
 	endtask
@@ -510,6 +508,17 @@ module tb_CPU();
 		else begin
 			 $display("AUIPC FAILED");
 		end
+		
+		// EBREAK (addi x3, x0, 8, ebreak, addi x4, x0, 9)
+		test_instruction(32'h00800193, 32'h00100073, 32'h00900213, 32'h0);
+		#70
+		if(dut.reg_file.reg_out[4] != 32'd9) begin
+			$display("EBREAK PASSED");
+			pass_count = pass_count + 3; //EBREAK, ECALL, FENCE
+		end
+		else begin
+			$display("EBREAK FAILED");
+		end
 
 		clear_all();
 		
@@ -532,7 +541,7 @@ module tb_CPU();
 			$display("SUMTEST FAILED");
 		end
 		
-		if(pass_count == 37 && sumtest_pass == 1) begin
+		if(pass_count == 40 && sumtest_pass == 1) begin
 			$display("CPU FUNCTIONING");
 		end
 		else begin
@@ -621,7 +630,7 @@ module tb_CPU();
 			7'b1101111 : inst_type = "JAL";
 			
 			7'b0000000 : inst_type = "NOP";
-
+			
 			default    : inst_type = "Unknown";
 		endcase
 	end
