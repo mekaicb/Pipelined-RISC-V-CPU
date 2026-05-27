@@ -4,7 +4,6 @@ module adder(
 	output logic [31:0] out
 	);
 	
-	
 	always_comb begin
 		out = in1 + in2;
 	end

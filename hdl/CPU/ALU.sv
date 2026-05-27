@@ -6,8 +6,6 @@ module ALU(
 	output logic overflow
 	);
 
-	assign zero = (out == 32'b0);
-		
 	always_comb begin
 	
 		overflow = 1'b0; // avoid latches
@@ -34,6 +32,9 @@ module ALU(
 			
 			default : out = 32'b0;
 		endcase
+		
+		zero = (out == 32'b0);
+		
 	end
 
 endmodule

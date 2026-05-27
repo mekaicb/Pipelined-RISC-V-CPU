@@ -7,7 +7,7 @@ module RAM(
 	);
 	
 	logic [31:0] eff_addr, data;
-	logic [7:0] mem_array [0:131071]; // byte sized memory array of 131072 bytes 
+	logic [7:0] mem_array[0:131071]; // byte sized memory array of 131072 bytes 
 	localparam offset = 32'h10000; // Starts after ROM. ROM = 0-64kB, 64kB = 0z00010000 (Type param for internal constants)
 	
 	always_comb begin

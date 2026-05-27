@@ -3,7 +3,8 @@ module control_unit(
 	output logic [1:0] ALUop, ALUsrc, pc_to_alu, // EX stage control signals
 	output logic btarget, jump,
 	output logic branch, memread, memwrite, // MEM stage control signals
-	output logic regwrite, memtoreg // WB stage control signals
+	output logic regwrite, memtoreg, // WB stage control signals
+	output logic ebreak
 	);
 	
 	always_comb begin
@@ -22,6 +23,7 @@ module control_unit(
 				pc_to_alu = 2'b00;
 				btarget = 1'b0;
 				jump = 1'b0;
+				ebreak = 1'b0;
 			end
 			
 			// I-type (Arithmetic/Logic)
@@ -36,6 +38,7 @@ module control_unit(
 				pc_to_alu = 2'b00;
 				btarget = 1'b0;
 				jump = 1'b0;
+				ebreak = 1'b0;
 			end
 			
 			// I-type (Loads)
@@ -50,6 +53,7 @@ module control_unit(
 				pc_to_alu = 2'b00;
 				btarget = 1'b0;
 				jump = 1'b0;
+				ebreak = 1'b0;
 			end
 			
 			// I-type (JALR)
@@ -64,6 +68,7 @@ module control_unit(
 				pc_to_alu = 2'b01; // in1 = PC address. ALU result = PC + 4
 				btarget = 1'b1;
 				jump = 1'b1;
+				ebreak = 1'b0;
 			end
 		
 			// S-type 
@@ -78,6 +83,7 @@ module control_unit(
 				pc_to_alu = 2'b00;
 				btarget = 1'b0;
 				jump = 1'b0;
+				ebreak = 1'b0;
 			end
 			
 			// B-type
@@ -92,6 +98,7 @@ module control_unit(
 				pc_to_alu = 2'b00;
 				btarget = 1'b0;
 				jump = 1'b0;
+				ebreak = 1'b0;
 			end 
 		
 			// U-type	
@@ -106,6 +113,7 @@ module control_unit(
 				pc_to_alu = 2'b10; // in1 = 0. ALU result = 0 + shifted imm
 				btarget = 1'b0;
 				jump = 1'b0;
+				ebreak = 1'b0;
 			end
 			
 			7'b0010111 : begin //AUIPC (Add Upper Immediate to PC) 
@@ -119,6 +127,7 @@ module control_unit(
 				pc_to_alu = 2'b01; // in1 = PC address, ALU result = PC + shifted imm
 				btarget = 1'b0;
 				jump = 1'b0;
+				ebreak = 1'b0;
 			end
 			
 			// J-type
@@ -133,8 +142,23 @@ module control_unit(
 				pc_to_alu = 2'b01; // in1 = PC address. ALU result = PC + 4
 				btarget = 1'b0;
 				jump = 1'b1;
+				ebreak = 1'b0;
 			end
 			
+			7'b1110011  : begin // EBREAK/ECALL
+				ALUsrc = 2'b00; 
+				ALUop = 2'b00;
+				branch = 1'b0;
+				memread = 1'b0;
+				memwrite = 1'b0;
+				regwrite = 1'b0;
+				memtoreg = 1'b0; 
+				pc_to_alu = 2'b00; 
+				btarget = 1'b0;
+				jump = 1'b0;
+				ebreak = 1'b1; // Halt the PC
+			end			
+				
 			default : begin 
 				ALUsrc = 2'b00;
 				ALUop = 2'b00; 
@@ -146,6 +170,7 @@ module control_unit(
 				pc_to_alu = 2'b00;
 				btarget = 1'b0;
 				jump = 1'b0;
+				ebreak = 1'b0;
 			end
 		endcase
 	end

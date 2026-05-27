@@ -7,3 +7,8 @@ test/work
 *.bak
 
 
+test/wlft*
+test/*.elf
+test/modelsim.ini
+synthesis/*.rpt
+synthesis/simulation/

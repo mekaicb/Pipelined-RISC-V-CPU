@@ -2,11 +2,11 @@ module MEMWB_buffer(
 	input logic regwrite_i, memtoreg_i, clk, rst_n,
 	input logic [31:0] memdata_i,
 	input logic [31:0] ALU_result_i,
-	input logic [31:0] rd_addr_i,
+	input logic [4:0] rd_addr_i,
 	output logic regwrite_o, memtoreg_o,
 	output logic [31:0] memdata_o,
 	output logic [31:0] ALU_result_o,
-	output logic [31:0] rd_addr_o
+	output logic [4:0] rd_addr_o
 	);
 	
 	always_ff @(posedge clk) begin
