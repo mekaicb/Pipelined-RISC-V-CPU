@@ -5,10 +5,16 @@ module frame_buffer(
 	output logic [31:0] data_o
 	);
 	
-	logic [31:0] vram[0:9599];
+	logic [31:0] vram[0:9599]; 
 	
-	always_ff @(posedge clk) begin // synchronous read & write
-		vram[addr_w[13:0]] <= we ? data_i : vram[addr_w[13:0]];
-		data_o <= vram[addr_r[13:0]]; 
+	always_ff @(posedge clk) begin 
+		if(we)
+			vram[addr_w] <= data_i;// Synchronous write
 	end
+	
+	always_comb begin
+		data_o = vram[addr_r[13:0]]; // Asynchronous read
+	end
+	
+	
 endmodule
