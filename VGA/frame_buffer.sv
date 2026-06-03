@@ -10,11 +10,8 @@ module frame_buffer(
 	always_ff @(posedge clk) begin 
 		if(we)
 			vram[addr_w] <= data_i;// Synchronous write
-	end
-	
-	always_comb begin
+			
 		data_o = vram[addr_r[13:0]]; // Asynchronous read
-	end
-	
+	end	
 	
 endmodule
