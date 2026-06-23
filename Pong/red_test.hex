@@ -1,0 +1,24 @@
+@00000000
+00005137   // lui  x2, 0x5         	sp = 0x5000  (end of RAM)   
+FE010113   // addi x2, x2, -32     	allocate 32 bytes to the stack
+00812E23   // sw   x8, 28(x2)	  	x8 stored from 0x4FFC to 0x5000 
+02010413   // addi x8, x2, 32       	x8 hold fp address in mem, fp = 0x5000
+000057B7   // lui  x15, 0x5         	fb base = 0x5000
+FEF42423   // sw   x15, -24(x8)		
+FE042623   // sw   x0, -20(x8)      	i stored at -20+0x5000 =0x4FEC -> 3835/3840
+02C0006F   // jal  x0, 0x2C        	-> condition check (0x48) 
+FEC42783   // lw   x15, -20(x8)
+00279793   // slli x15, x15, 2
+FE842703   // lw   x14, -24(x8)
+00F707B3   // add  x15, x14, x15    addr = base + i*4
+55555737   // lui  x14, 0x55555
+55570713   // addi x14, x14, 0x555  pixel = 0x55555555
+00E7A023   // sw   x14, 0(x15)      framebuffer write
+FEC42783   // lw   x15, -20(x8)
+00178793   // addi x15, x15, 1      i++
+FEF42623   // sw   x15, -20(x8)
+FEC42703   // lw   x14, -20(x8)
+000057B7   // lui  x15, 0x5
+AFF78793   // addi x15, x15, 0xAFF  limit = 0x4AFF (19199)
+FCE7D6E3   // bge  x15, x14, -52    loop back to 0x20
+0000006F   // jal  x0, 0            halt
