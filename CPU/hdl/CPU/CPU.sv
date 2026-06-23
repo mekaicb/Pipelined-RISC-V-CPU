@@ -1,15 +1,20 @@
-	module CPU(
-	input logic clk, rst_n
+module CPU(
+	input logic clk, rst_n,
+	output logic [3:0] VGA_R, VGA_G, VGA_B,
+	output logic hsync, vsync,
+	output logic [9:0] LED
 	);
+	
+	logic pcsrc_d;
+	logic fb_sel_d;
+	
 	logic [31:0] pc_addr_in, pc_addr_out, IFID_addr_out, IDEX_addr_out;
 	logic [31:0] instr_data_out, IFID_data_out;
 	logic [6:0] opcode;
 	
 	logic [31:0] ALU_result, EXMEM_ALU_result, MEMWB_ALU_result;
 	logic [31:0] rd_data;
-	
 
-	// Control Signals
 	logic regwrite, IDEX_regwrite, EXMEM_regwrite, MEMWB_regwrite;
 	logic branch, IDEX_branch, EXMEM_branch;
 	logic memwrite,IDEX_memwrite, EXMEM_memwrite;
@@ -23,7 +28,8 @@
 	logic [1:0] alusrc, IDEX_alusrc;
 	logic [1:0] pc_to_alu, IDEX_pc_to_alu;
 	logic pcsrc;
-	logic pcwrite, IFID_write, IDEX_hazard_flush;
+	logic pcwrite, IFID_write, IDEX_write, EXMEM_write;
+	logic IDEX_hazard_flush, MEMWB_hazard_flush;
 	
 	logic [4:0] rs1_addr, IDEX_rs1_addr;
 	logic [4:0] rs2_addr, IDEX_rs2_addr;
@@ -46,9 +52,11 @@
 	logic [1:0] forward_A, forward_B;
 	logic [31:0] forward_A_out, forward_B_out;
 	
-	logic [31:0] read_data, mem_data; // Wire 
-
+	logic [31:0] read_data, mem_data; 
 	
+	logic [2:0] rgb;
+	logic fb_sel;
+	logic [31:0] pc_delayed;
 	
 	program_counter pc(
 		.clk(clk),
@@ -57,30 +65,37 @@
 		.ebreak(ebreak_halt),
 		.addr_in(pc_addr_in), 
 		.addr_out(pc_addr_out),
-		.pcwrite(pcwrite)
-	);
+		.pcwrite(pcwrite), // pcsrc needs to overwrite pcwrite. If pcsrc, pcwrite = 0
+		.pcsrc(pcsrc)
+	); 
+
+//	IP_ROM ROM(
+//		.clock(clk),
+//		.address(pc_addr_out[12:2]),
+//		.q(instr_data_out)
+//	);
 	
 	instruction_memory ROM(
 		.clk(clk),
 		
 		.addr_in(pc_addr_out),
-		.data_out(instr_data_out)
+		.data_out(instr_data_out),
+		.stall(pcwrite) // on a branch, stall the ROM
 	);
 	
 	IFID_buffer IFID_buffer(
 		.clk(clk), 
 		.rst_n(rst_n),
 		
-		.pc_addr_i(pc_addr_out), 
+		.pc_addr_i(pc_delayed), 
 		.inst_data_i(instr_data_out),
 		.pc_addr_o(IFID_addr_out),
 		.inst_data_o(IFID_data_out),
 		
 		.ebreak_flush(ebreak),
-		.IFID_flush(pcsrc),
+		.IFID_flush(pcsrc || pcsrc_d),
 		.IFID_write(IFID_write)
 	);
-	
 	
 	reg_file reg_file(
 		.rs2_addr(rs2_addr), 
@@ -153,6 +168,7 @@
 		.btarget_o(IDEX_btarget),
 		.IDEX_flush(pcsrc),
 		.IDEX_hazard_flush(IDEX_hazard_flush),
+		.IDEX_write(IDEX_write),
 		
 		.funct3_o(IDEX_funct3),
 		.funct7_o(IDEX_funct7), 
@@ -195,13 +211,19 @@
 	);
 	
 	hazard_detection hazard_unit(
+		.clk(clk),
+		.rst_n(rst_n),
 		.IFID_rs1_addr(rs1_addr),
 		.IFID_rs2_addr(rs2_addr),
 		.IDEX_rd_addr(IDEX_rd_addr),
 		.IDEX_memread(IDEX_memread),
+		.EXMEM_memread(EXMEM_memread),
 		.pcwrite(pcwrite),
 		.IFID_write(IFID_write),
-		.IDEX_hazard_flush(IDEX_hazard_flush)
+		.IDEX_write(IDEX_write),
+		.EXMEM_write(EXMEM_write),
+		.IDEX_hazard_flush(IDEX_hazard_flush),
+		.MEMWB_hazard_flush(MEMWB_hazard_flush)
 	);
 	
 	EXMEM_buffer EXMEM_buffer(
@@ -218,7 +240,7 @@
 		.zero(zero),
 		.ALU_result_i(ALU_result), 
 		
-		.rs2_data_i(forward_B_out), // forward_B_out to handle forwarded value on a hazard in case of store
+		.rs2_data_i(forward_B_out),
 		.rd_addr_i(IDEX_rd_addr), 
 		
 		.funct3(IDEX_funct3), 
@@ -234,6 +256,7 @@
 		.zero_o(EXMEM_zero),
 		.ALU_result_o(EXMEM_ALU_result),
 		.EXMEM_flush(pcsrc),
+		.EXMEM_write(EXMEM_write),
 		
 		.rs2_data_o(EXMEM_rs2_data), 
 		.rd_addr_o(EXMEM_rd_addr),
@@ -255,7 +278,7 @@
 	);
 	
 	RAM RAM(
-		.memwrite(EXMEM_memwrite), 
+		.memwrite((EXMEM_memwrite && ~fb_sel)),
 		.memread(EXMEM_memread),
 		.clk(clk),
 		.addr_in(EXMEM_ALU_result),
@@ -276,9 +299,21 @@
 		.memtoreg_o(MEMWB_memtoreg), 
 		.memdata_o(mem_data), 
 		.ALU_result_o(MEMWB_ALU_result), 
-		.rd_addr_o(MEMWB_rd_addr)
+		.rd_addr_o(MEMWB_rd_addr),
+		.MEMWB_hazard_flush
 	);
-									
+	
+	VGA VGA(
+		.clk_50(clk),
+		.rst_n(rst_n),
+		.we((EXMEM_memwrite && fb_sel)),
+		.data_i(EXMEM_rs2_data),
+		.addr_i(EXMEM_ALU_result[17:0]),
+		.rgb(rgb),
+		.hsync(hsync),
+		.vsync(vsync)
+	);
+				
 	always_comb begin
 		pc_addr_in = pcsrc ? EXMEM_branch_target : (pc_addr_out + 4);
 		rs2_addr = IFID_data_out[24:20];
@@ -287,6 +322,16 @@
 		opcode = IFID_data_out[6:0];
 		funct7 = IFID_data_out[30];
 		funct3 = IFID_data_out[14:12];
+		
+		LED <= 10'b1010101010;
+		
+		fb_sel = (EXMEM_ALU_result >= 32'h5000) && (EXMEM_ALU_result < 32'h17BFF);
+		
+		rd_data = MEMWB_memtoreg ? mem_data : MEMWB_ALU_result;
+		
+		VGA_R = {4{rgb[0]}};
+		VGA_G = {4{rgb[1]}};
+		VGA_B = {4{rgb[2]}};
 		
 		case(forward_A)
 			2'b00 : forward_A_out = IDEX_rs1_data;
@@ -302,23 +347,21 @@
 			default : forward_B_out = IDEX_rs2_data;
 		endcase
 		
-		case(IDEX_pc_to_alu) // in1 mux
-			2'b00 : in1 = forward_A_out; // rs1
-			2'b01 : in1 = IDEX_addr_out; // PC addr
-			2'b10 : in1 = 32'b0;         // 0
+		case(IDEX_pc_to_alu)
+			2'b00 : in1 = forward_A_out;
+			2'b01 : in1 = IDEX_addr_out;
+			2'b10 : in1 = 32'b0;         
 			default: in1 = 32'b0;
 		endcase
 		 
-		case(IDEX_alusrc) // in2 mux
-			2'b00 : in2 = forward_B_out; // rs2
-			2'b01 : in2 = IDEX_imm;      // imm
-			2'b10 : in2 = 32'h00000004;  // 4
+		case(IDEX_alusrc)
+			2'b00 : in2 = forward_B_out;
+			2'b01 : in2 = IDEX_imm;      
+			2'b10 : in2 = 32'h00000004;  
 			default: in2 = 32'b0;
 		endcase
 
 		branch_target = (IDEX_btarget ? forward_A_out : IDEX_addr_out) + IDEX_imm;
-		
-		rd_data = MEMWB_memtoreg ? mem_data: MEMWB_ALU_result;
 		
 	end
 	
@@ -326,9 +369,28 @@
 		if(!rst_n)     
 			ebreak_halt <= 0;
 		else if(ebreak) 
-			ebreak_halt <= 1; // sets and never clears until reset
+			ebreak_halt <= 1;
+	end
+	
+	always_ff @(posedge clk) begin
+		if (!rst_n) 
+			pcsrc_d <= 1'b0;
+		else      
+			pcsrc_d <= pcsrc;
+	end
+
+	always_ff @(posedge clk) begin
+		if (!rst_n)
+			pc_delayed <= 0;
+		else if(!pcwrite)  
+			pc_delayed <= pc_addr_out;
+	end
+				
+	always_ff @(posedge clk) begin
+    if (!rst_n)
+        fb_sel_d <= 1'b0;
+    else
+        fb_sel_d <= fb_sel;
 	end
 	
 endmodule
-		
-		
