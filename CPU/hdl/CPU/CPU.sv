@@ -1,12 +1,11 @@
 module CPU(
 	input logic clk, rst_n,
+	input logic p1_left, p1_right,
+	input logic p2_left, p2_right,
 	output logic [3:0] VGA_R, VGA_G, VGA_B,
 	output logic hsync, vsync,
 	output logic [9:0] LED
 	);
-	
-	logic pcsrc_d;
-	logic fb_sel_d;
 	
 	logic [31:0] pc_addr_in, pc_addr_out, IFID_addr_out, IDEX_addr_out;
 	logic [31:0] instr_data_out, IFID_data_out;
@@ -57,6 +56,13 @@ module CPU(
 	logic [2:0] rgb;
 	logic fb_sel;
 	logic [31:0] pc_delayed;
+	logic [31:0] user_input;
+	logic gpio_sel;
+	
+	logic pcsrc_d;
+	logic fb_sel_d;
+	logic gpio_sel_d;
+	
 	
 	program_counter pc(
 		.clk(clk),
@@ -68,12 +74,6 @@ module CPU(
 		.pcwrite(pcwrite), // pcsrc needs to overwrite pcwrite. If pcsrc, pcwrite = 0
 		.pcsrc(pcsrc)
 	); 
-
-//	IP_ROM ROM(
-//		.clock(clk),
-//		.address(pc_addr_out[12:2]),
-//		.q(instr_data_out)
-//	);
 	
 	instruction_memory ROM(
 		.clk(clk),
@@ -306,14 +306,24 @@ module CPU(
 	VGA VGA(
 		.clk_50(clk),
 		.rst_n(rst_n),
-		.we((EXMEM_memwrite && fb_sel)),
+		.we(EXMEM_memwrite && fb_sel),
 		.data_i(EXMEM_rs2_data),
 		.addr_i(EXMEM_ALU_result[17:0]),
 		.rgb(rgb),
 		.hsync(hsync),
 		.vsync(vsync)
 	);
-				
+	
+	GPIO GPIO(
+		.clk(clk),
+		.p1_left(p1_left),
+		.p1_right(p1_right),
+		.p2_left(p2_left), 
+		.p2_right(p2_right),
+		.addr_i(EXMEM_ALU_result),
+		.user_input(user_input)
+	);
+		
 	always_comb begin
 		pc_addr_in = pcsrc ? EXMEM_branch_target : (pc_addr_out + 4);
 		rs2_addr = IFID_data_out[24:20];
@@ -323,11 +333,17 @@ module CPU(
 		funct7 = IFID_data_out[30];
 		funct3 = IFID_data_out[14:12];
 		
-		LED <= 10'b1010101010;
+		// LED <= 10'b1010101010;
+		
+		LED[9] = p1_left;
+		LED[8] = p1_right;
+		LED[7] = p2_left;
+		LED[6] = p2_right;
 		
 		fb_sel = (EXMEM_ALU_result >= 32'h5000) && (EXMEM_ALU_result < 32'h17BFF);
+		gpio_sel = (EXMEM_ALU_result >= 32'h17C00) && (EXMEM_ALU_result < 32'h17C10); // GPIO memory only holds 4 words
 		
-		rd_data = MEMWB_memtoreg ? mem_data : MEMWB_ALU_result;
+		rd_data = MEMWB_memtoreg ? (gpio_sel_d ? user_input : mem_data) : MEMWB_ALU_result;
 		
 		VGA_R = {4{rgb[0]}};
 		VGA_G = {4{rgb[1]}};
@@ -387,10 +403,18 @@ module CPU(
 	end
 				
 	always_ff @(posedge clk) begin
-    if (!rst_n)
+		if (!rst_n)
         fb_sel_d <= 1'b0;
-    else
+		else
         fb_sel_d <= fb_sel;
 	end
+	
+	always_ff @(posedge clk) begin
+		if (!rst_n)
+        gpio_sel_d <= 1'b0;
+		else
+        gpio_sel_d <= gpio_sel;
+	end
+
 	
 endmodule
