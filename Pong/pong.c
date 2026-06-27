@@ -25,8 +25,6 @@
 #define MAX_LEFT ((volatile uint32_t *)0x12EA8)
 
 #define BALL_CENTER ((volatile uint32_t *)0xE64C) // 19 (words to center) + WPR(240) + 0x5000 (offset) = 0xE64C in mem
-#define BALL_SPEED 2
-
 
 void draw_borders(void);
 void draw_players(volatile uint32_t **p1_pos, volatile uint32_t *p1left, volatile uint32_t *p1right, volatile uint32_t *p2left, volatile uint32_t *p2right);
@@ -38,8 +36,8 @@ void main(void){
 
     volatile uint32_t *p1_pos = p1; // initilize position to center
     volatile uint32_t *ball_pos = BALL_CENTER;
-    int vx = BALL_SPEED;
-    int vy = BALL_SPEED + 4;
+    int vx = 1;
+    int vy = 8;
 
     draw_borders();
 
@@ -104,28 +102,33 @@ void draw_ball(volatile uint32_t **ball_pos, volatile uint32_t **p1_pos, int *vx
         (*ball_pos)[(i*WPR)] = BLACK;
     }
 
+    // If ball hits paddle and ball is moving down, reflect. Use ball bottom (+7*WPR) so it touches paddle
+    // *vy * WPR allows player-ball to account for speed so it doesnt phase through
+    if( (*ball_pos + 7*WPR >= *p1_pos - (*vy)*WPR) && (*ball_pos + 7*WPR <= *p1_pos + 2) && (*vy > 0)){ // paddle 2 words wide
+        if( ((*ball_pos - topLeft) % WPR >= (*p1_pos - topLeft) % WPR - 1) && ((*ball_pos - topLeft) % WPR <= (*p1_pos - topLeft) % WPR + 2) ){
+           *vy = -(*vy); // Paddle hit, reflect
+        }
+    }
+
+    // If ball is at/below paddle row and still moving down, it missed -> reset (stops it reaching border)
+    if( ((*ball_pos - topLeft) / WPR >= 232) && (*vy > 0) ){ // 232 to account for speed, may need to increase/decrease if speed changes
+        *ball_pos = BALL_CENTER;
+        *vy = -(*vy);
+    }
+
     // Compute new velocities
-    if( ((*ball_pos - topLeft) % WPR == 1) || ((*ball_pos - topRight) % WPR == 39) ){ // Note that % 40 refers to _umodsi13 for repeat>
+    if( ((*ball_pos - topLeft) % WPR == 1) || ((*ball_pos - topRight) % WPR == 39) ){ // Note that % 40 refers to _umodsi13 
         *vx = -(*vx); // If ball hits left or right edge, reverse vx, keep vy
     }
     if((*ball_pos - topLeft) / WPR <= 8){
         *vy = -(*vy); // If ball hits top edge, reverse vy, keep vx
     }
 
-    // NOTE: May have to increase/decrease 225 if vy speed increases/decreases respectively
-    if((*ball_pos - topLeft) / WPR >= 225){ // >= accounts for if speed is increased and ball may jump over 230 exact 
-        //(*ball_pos) = BALL_CENTER;
-        *vy = -(*vy);
-    }
-
     *ball_pos = *ball_pos + (*vy)*WPR + (*vx);   // Set new ball position
+
     for(int i = 0; i < 8; i++)
         (*ball_pos)[i*WPR] = (GREEN & 0x0000FFFF); // Redraw ball
 
-
-    //else if((*ball_pos == (*p1_pos - 8*(WPR)))){ needs fixing
-    //    *vy = -(*vy);
-    // }
 }
 
 
