@@ -42,11 +42,10 @@ void main(void){
     draw_borders();
 
     while(1){
-	delay();
-	draw_ball(&ball_pos, &p1_pos, &vx, &vy); // pass vx, vy by reference to allow function to modify
+        delay();
+        draw_ball(&ball_pos, &p1_pos, &vx, &vy); // pass vx, vy by reference to allow function to modify
         draw_players(&p1_pos, p1_left, p1_right, p2_left, p2_right);
     }
-
 }
 
 void draw_borders(void){
