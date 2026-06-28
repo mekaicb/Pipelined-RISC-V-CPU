@@ -18,8 +18,8 @@ module RAM(
 	localparam offset = 32'h1400;
 	
 	always_comb begin
-		byte_sel = eff_addr[1:0]; // Assign byte enable to the lower two bits of the address input
 		eff_addr = (addr_in - offset) >> 2; // Exclude first two bits since mem_array is word addressible only
+		byte_sel = eff_addr[1:0]; // Assign byte enable to the lower two bits of the address input
 	end
 	
 	always_comb begin
