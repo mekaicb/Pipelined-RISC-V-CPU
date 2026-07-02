@@ -8,7 +8,7 @@ module IDEX_buffer(
 	input logic [31:0] rs2_data_i, rs1_data_i,
 	input logic [4:0] rd_addr_i, rs2_addr_i, rs1_addr_i,
 	input logic [31:0] imm_i,
-	input logic IDEX_write,
+	input logic IDEX_stall,
 	output logic branch_o, memread_o, memwrite_o, regwrite_o, memtoreg_o, jump_o, btarget_o,
 	output logic [1:0] ALUop_o, ALUsrc_o, pc_to_alu_o,
 	output logic funct7_o,
@@ -41,7 +41,7 @@ module IDEX_buffer(
 			IDEX_rs2_addr <= 5'b0;
 			IDEX_rs1_addr <= 5'b0;
 		end
-		else if (!IDEX_write) begin
+		else if (!IDEX_stall) begin
 			ALUsrc_o <= ALUsrc_i;
 			ALUop_o <= ALUop_i;
 			branch_o <= branch_i;

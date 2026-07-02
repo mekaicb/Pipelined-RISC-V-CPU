@@ -15,11 +15,11 @@ module CPU(
 	logic [31:0] rd_data;
 
 	logic regwrite, IDEX_regwrite, EXMEM_regwrite, MEMWB_regwrite;
-	logic branch, IDEX_branch, EXMEM_branch;
+	logic branch, IDEX_branch;
 	logic memwrite,IDEX_memwrite, EXMEM_memwrite;
 	logic memtoreg,IDEX_memtoreg, EXMEM_memtoreg, MEMWB_memtoreg;
 	logic memread, IDEX_memread, EXMEM_memread;
-	logic jump, IDEX_jump, EXMEM_jump;
+	logic jump, IDEX_jump;
 	logic btarget, IDEX_btarget;
 	logic ebreak, ebreak_halt;
 	logic [1:0] aluop, IDEX_aluop;
@@ -27,7 +27,7 @@ module CPU(
 	logic [1:0] alusrc, IDEX_alusrc;
 	logic [1:0] pc_to_alu, IDEX_pc_to_alu;
 	logic pcsrc;
-	logic pcwrite, IFID_write, IDEX_write, EXMEM_write;
+	logic pc_stall, IFID_stall, IDEX_stall, EXMEM_stall;
 	logic IDEX_hazard_flush, MEMWB_hazard_flush;
 	
 	logic [4:0] rs1_addr, IDEX_rs1_addr;
@@ -38,14 +38,14 @@ module CPU(
 	logic [31:0] rs2_data, IDEX_rs2_data, EXMEM_rs2_data;
 	
 	logic [2:0] funct3, IDEX_funct3, EXMEM_funct3;
-	logic funct7, IDEX_funct7, EXMEM_funct7;
+	logic funct7, IDEX_funct7;
 	
 	logic [31:0] imm_gen_o, IDEX_imm;
 
-	logic [31:0] branch_target, EXMEM_branch_target;
+	logic [31:0] branch_target;
 	logic [31:0] in1, in2;
 	
-	logic zero, EXMEM_zero; 
+	logic zero; 
 	logic overflow;
 
 	logic [1:0] forward_A, forward_B;
@@ -71,7 +71,7 @@ module CPU(
 		.ebreak(ebreak_halt),
 		.addr_in(pc_addr_in), 
 		.addr_out(pc_addr_out),
-		.pcwrite(pcwrite), // pcsrc needs to overwrite pcwrite. If pcsrc, pcwrite = 0
+		.pc_stall(pc_stall), // pcsrc needs to overwrite pc_stall. If pcsrc, pcwrite = 0
 		.pcsrc(pcsrc)
 	); 
 	
@@ -80,7 +80,7 @@ module CPU(
 		
 		.addr_in(pc_addr_out),
 		.data_out(instr_data_out),
-		.stall(pcwrite) // on a branch, stall the ROM
+		.stall(pc_stall) // Stall ROM on a hazard
 	);
 	
 	IFID_buffer IFID_buffer(
@@ -94,7 +94,7 @@ module CPU(
 		
 		.ebreak_flush(ebreak),
 		.IFID_flush(pcsrc || pcsrc_d),
-		.IFID_write(IFID_write)
+		.IFID_stall(IFID_stall)
 	);
 	
 	reg_file reg_file(
@@ -168,7 +168,7 @@ module CPU(
 		.btarget_o(IDEX_btarget),
 		.IDEX_flush(pcsrc),
 		.IDEX_hazard_flush(IDEX_hazard_flush),
-		.IDEX_write(IDEX_write),
+		.IDEX_stall(IDEX_stall),
 		
 		.funct3_o(IDEX_funct3),
 		.funct7_o(IDEX_funct7), 
@@ -218,10 +218,10 @@ module CPU(
 		.IDEX_rd_addr(IDEX_rd_addr),
 		.IDEX_memread(IDEX_memread),
 		.EXMEM_memread(EXMEM_memread),
-		.pcwrite(pcwrite),
-		.IFID_write(IFID_write),
-		.IDEX_write(IDEX_write),
-		.EXMEM_write(EXMEM_write),
+		.pc_stall(pc_stall),
+		.IFID_stall(IFID_stall),
+		.IDEX_stall(IDEX_stall),
+		.EXMEM_stall(EXMEM_stall),
 		.IDEX_hazard_flush(IDEX_hazard_flush),
 		.MEMWB_hazard_flush(MEMWB_hazard_flush)
 	);
@@ -236,45 +236,32 @@ module CPU(
 		.regwrite_i(IDEX_regwrite),
 		.memtoreg_i(IDEX_memtoreg), 
 		
-		.imm_i(branch_target),
-		.zero(zero),
 		.ALU_result_i(ALU_result), 
+		.funct3(IDEX_funct3),
 		
 		.rs2_data_i(forward_B_out),
 		.rd_addr_i(IDEX_rd_addr), 
 		
-		.funct3(IDEX_funct3), 
-		.funct7(IDEX_funct7), 
-		
-		.branch_o(EXMEM_branch),
 		.memread_o(EXMEM_memread), 
 		.memwrite_o(EXMEM_memwrite),
 		.regwrite_o(EXMEM_regwrite),
 		.memtoreg_o(EXMEM_memtoreg), 
 		
-		.imm_o(EXMEM_branch_target), 
-		.zero_o(EXMEM_zero),
 		.ALU_result_o(EXMEM_ALU_result),
-		.EXMEM_flush(pcsrc),
-		.EXMEM_write(EXMEM_write),
+		.EXMEM_stall(EXMEM_stall),
+		.EXMEM_funct3(EXMEM_funct3),
 		
 		.rs2_data_o(EXMEM_rs2_data), 
-		.rd_addr_o(EXMEM_rd_addr),
-		
-		.EXMEM_funct3(EXMEM_funct3),
-		.EXMEM_funct7(EXMEM_funct7),
-		
-		.jump_i(IDEX_jump),
-		.jump_o(EXMEM_jump)
+		.rd_addr_o(EXMEM_rd_addr)
 	);	
 				
 	branch_control branch_control_unit(
-		.zero(EXMEM_zero), 
-		.branch(EXMEM_branch), 
-		.ALU_result(EXMEM_ALU_result), 
-		.funct3(EXMEM_funct3), 
+		.zero(zero), 
+		.branch(IDEX_branch), 
+		.ALU_result(ALU_result), 
+		.funct3(IDEX_funct3), 
 		.pcsrc(pcsrc), 
-		.jump(EXMEM_jump)
+		.jump(IDEX_jump)
 	);
 	
 	RAM RAM(
@@ -300,7 +287,7 @@ module CPU(
 		.memdata_o(mem_data), 
 		.ALU_result_o(MEMWB_ALU_result), 
 		.rd_addr_o(MEMWB_rd_addr),
-		.MEMWB_hazard_flush
+		.MEMWB_hazard_flush(MEMWB_hazard_flush)
 	);
 	
 	VGA VGA(
@@ -325,7 +312,7 @@ module CPU(
 	);
 		
 	always_comb begin
-		pc_addr_in = pcsrc ? EXMEM_branch_target : (pc_addr_out + 4);
+		pc_addr_in = pcsrc ? branch_target : (pc_addr_out + 4);
 		rs2_addr = IFID_data_out[24:20];
 		rs1_addr = IFID_data_out[19:15];
 		rd_addr = IFID_data_out[11:7];
@@ -398,7 +385,7 @@ module CPU(
 	always_ff @(posedge clk) begin
 		if (!rst_n)
 			pc_delayed <= 0;
-		else if(!pcwrite)  
+		else if(!pc_stall) // DFF only continues as normal if PC not stalled 
 			pc_delayed <= pc_addr_out;
 	end
 				
