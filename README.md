@@ -2,7 +2,10 @@
 
 This is a 5-stage pipelined RV32I SoC written in SystemVerilog. It runs bare-metal Pong on a DE10-Lite FPGA and outputs the game to a monitor via VGA.
 
-![Pong running on the SoC](docs/pong.gif)
+<p align="center">
+  <img src="docs/pong.gif" width="500" valign="top">
+  <img src="docs/board.jpg" width="300" valign="top">
+</p>
 
 ## What it does
 
@@ -14,15 +17,35 @@ The FPGA's BRAM was divided into 4 sections dedicated to hold instructions (ROM)
 
 A 640x480 resolution at 2bpp was used for the display, meaning that each pixel can either be solid red, green, blue, or black. 
 
-Pong was written in C. The .c file was compiled into a hex file using riscv-unknown-elf commands. These commands were placed in a bash script, compile.sh, which allows the user to go from .c -> .o -> .elf -> .hex.
+Pong was written in C. The .c file was compiled into a hex file using riscv64-unknown-elf commands. These commands were placed in a bash script, compile.sh, which allows the user to go from .c -> .o -> .elf -> .hex.
 
 ## Results
 
-Max clock speed : 51.67 MHz
-Runs at : 50 MHz 
-CPI : 1.34 running Pong (see note) 
+Max clock speed : 51.67 MHz 
+
+Runs at : 50 MHz
+ 
+CPI : 1.343 running Pong 
 
 Note: The CPI was measured by counting how many instructions reached writeback, which isn't a fully rigorous method. I plan to add the Zicsr extension so I can use the mcycle and minstret counters for a proper measurement.
+
+The critical path is shown below.
+
+![Critical Path](docs/Critical_Path.png)
+
+## Datapath
+
+This is a high level diagram of the processor datapath.
+
+![Simple Datapath](docs/Simple_Datapath.png)
+
+This is a low level diagram of the datapath, which can be viewed more clearly from the actual file.
+
+![Detailed Datapath](docs/Detailed_Datapath.png)
+
+The VGA connector wiring diagram is shown below.
+
+![VGA Diagram](docs/VGA_datapath.png)
 
 ## How the repo is organized
 
