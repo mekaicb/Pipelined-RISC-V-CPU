@@ -1,6 +1,6 @@
 # Pipelined RISC-V SoC
 
-This is a 5-stage pipelined RV32I SoC written in SystemVerilog. It runs bare-metal Pong on a DE10-Lite FPGA and outputs the game to a monitor via VGA.
+This is a custom 5-stage pipelined RV32I SoC written in SystemVerilog. It runs bare-metal Pong on a DE10-Lite FPGA and outputs the game to a monitor via VGA.
 
 <p align="center">
   <img src="docs/pong.gif" width="500" valign="top">
