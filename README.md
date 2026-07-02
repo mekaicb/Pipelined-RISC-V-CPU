@@ -4,7 +4,7 @@ This is a custom 5-stage pipelined RV32I SoC written in SystemVerilog. It runs b
 
 <p align="center">
   <img src="docs/pong.gif" width="500" valign="top">
-  <img src="docs/board.jpg" width="300" valign="top">
+  <img src="docs/setup.jpeg" width="300" valign="top">
 </p>
 
 ## What it does
